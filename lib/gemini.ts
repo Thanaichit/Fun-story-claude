@@ -2,7 +2,7 @@
  * เรียก Gemini API ผ่าน @google/genai + ประกอบ system prompt ของ "อิงดาว"
  */
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 /** Default reply — ใช้ทั้งกรณี FAQ ไม่มีคำตอบ และทุกกรณี error */
 export const DEFAULT_REPLY =
@@ -50,7 +50,10 @@ export async function askGemini(faq: string, userMessage: string): Promise<strin
       config: {
         systemInstruction: buildSystemPrompt(faq),
         temperature: 1.0,
-        maxOutputTokens: 1024,
+        // thinking tokens ถูกนับรวมใน maxOutputTokens — ถ้าปล่อย default (medium)
+        // ความคิดจะกินโควต้าจนหมด ทำให้ finishReason เป็น MAX_TOKENS ทุกครั้ง
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+        maxOutputTokens: 2048,
       },
     });
 
