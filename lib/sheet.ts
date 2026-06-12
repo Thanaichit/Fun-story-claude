@@ -71,14 +71,24 @@ export async function getFaq(): Promise<string | null> {
     if (!res.ok) throw new Error(`Sheet fetch failed with status ${res.status}`);
 
     const csv = await res.text();
+
+    // ลิงก์แชร์ธรรมดา (ไม่ใช่ Publish to web แบบ CSV) จะได้ HTML กลับมาพร้อม status 200
+    if (csv.trimStart().startsWith("<")) {
+      throw new Error(
+        "URL returned HTML, not CSV — ต้องใช้ลิงก์จาก File → Share → Publish to web → CSV"
+      );
+    }
+
     const rows = parseCsv(csv);
-    const faq = rows
+    const pairs = rows
       .slice(1) // ข้าม header: question,answer
       .filter((r) => r[0]?.trim() && r[1]?.trim())
-      .map((r) => `Q: ${r[0].trim()} → A: ${r[1].trim()}`)
-      .join("\n");
+      .map((r) => `Q: ${r[0].trim()} → A: ${r[1].trim()}`);
+    const faq = pairs.join("\n");
 
     if (!faq) throw new Error("Sheet has no FAQ rows");
+
+    console.log(`[sheet] loaded ${pairs.length} FAQ rows, preview: ${faq.slice(0, 120)}`);
 
     cachedFaq = faq;
     cachedAt = now;
