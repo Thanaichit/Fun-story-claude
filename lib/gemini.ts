@@ -44,7 +44,7 @@ export async function askGemini(faq: string, userMessage: string): Promise<strin
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    const response = await ai.models.generateContent({
+    const request = {
       model: "gemini-3.5-flash",
       contents: `<question>\n${userMessage}\n</question>`,
       config: {
@@ -55,7 +55,20 @@ export async function askGemini(faq: string, userMessage: string): Promise<strin
         thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
         maxOutputTokens: 2048,
       },
-    });
+    };
+
+    let response;
+    try {
+      response = await ai.models.generateContent(request);
+    } catch (err) {
+      // 503 (model overloaded) / 429 (rate limit) เป็น error ชั่วคราวฝั่ง Google
+      // retry 1 ครั้งหลังรอ 0.8 วิ — ยังอยู่ในกรอบเวลา ~10 วิของ LINE webhook
+      const status = (err as { status?: number })?.status;
+      if (status !== 503 && status !== 429) throw err;
+      console.warn(`[gemini] got ${status}, retrying once...`);
+      await new Promise((r) => setTimeout(r, 800));
+      response = await ai.models.generateContent(request);
+    }
 
     const finishReason = response.candidates?.[0]?.finishReason;
     console.log("[gemini]", {
